@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context antiResourceLocking="false" privileged="true" >
+	<Resource
+		name="r_egrocery2"
+		auth="Container"
+		type="javax.sql.DataSource"
+		maxActive="200"
+		maxIdle="10"
+		maxWait="20"
+		username="EGROCERY2"
+		password="egr123ocery"
+		driverClassName="oracle.jdbc.driver.OracleDriver"
+		url="jdbc:oracle:thin:@119.254.17.111:1521:orcl"
+	/>
+	<Resource
+		name="w_egrocery2"
+		auth="Container"
+		type="javax.sql.DataSource"
+		maxActive="200"
+		maxIdle="10"
+		maxWait="20"
+		username="EGROCERY2"
+		password="egr123ocery"
+		driverClassName="oracle.jdbc.driver.OracleDriver"
+		url="jdbc:oracle:thin:@119.254.17.111:1521:orcl"
+	/>
+</Context>

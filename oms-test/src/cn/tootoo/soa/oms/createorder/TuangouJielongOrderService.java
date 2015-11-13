@@ -1,0 +1,301 @@
+package cn.tootoo.soa.oms.createorder;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.log4j.Logger;
+
+import cn.tootoo.db.egrocery.tosparentorder.TOsParentOrderDao;
+import cn.tootoo.enums.BaseResultEnum;
+import cn.tootoo.global.Global;
+import cn.tootoo.http.bean.BaseInputBean;
+import cn.tootoo.http.bean.BaseOutputBean;
+import cn.tootoo.soa.address.getaddressbyid.output.AddressGetAddressByIDOutputData;
+import cn.tootoo.soa.base.bean.GoodsNumberBean;
+import cn.tootoo.soa.base.bean.ShippingDateBean;
+import cn.tootoo.soa.base.enums.BaseOrderResultEnum;
+import cn.tootoo.soa.goods.getgoodsinfo.output.GoodsGetGoodsInfoGoodsInfoElementO;
+import cn.tootoo.soa.oms.createorder.bussiness.TuangouJielongOrderBussiness;
+import cn.tootoo.soa.oms.createorder.input.OmsCreateOrderInputData;
+import cn.tootoo.soa.oms.createorder.output.OmsCreateOrderOutputData;
+import cn.tootoo.soa.oms.createorder.rpc.BaseResult;
+import cn.tootoo.soa.oms.createorder.rpc.TuangouJielongCreateOrderRPC;
+import cn.tootoo.soa.promotion.getpromotionbyid.output.PromotionGetPromotionByIdDetailElementO;
+import cn.tootoo.soa.promotion.getpromotionbyid.output.PromotionGetPromotionByIdOutputData;
+import cn.tootoo.soa.shipping.getgoodsshippinginfos.output.ShippingGetGoodsShippingInfosShippingRulesElementO;
+import cn.tootoo.utils.Log;
+import cn.tootoo.utils.ResponseUtil;
+
+/**
+ * 团购订单Service
+ * @author shidake
+ *  组装promotion对象
+	校验两种特殊团购(网易)
+	微信活动校验并且填充数据
+	沱沱惠团购商品限购
+	判断团购是否为九段专享，如果是 验证会员是否为九段会员
+	如果是接龙团购且沱粉专享活动且活动类型为4，则 验证会员是否为沱粉会员
+	调用地址服务
+	调用库存服务
+	调用配送服务
+	调用配送服务运力
+	设置收货时间
+	获取运费，为了商品总价(不包括运费)没有超过活动限额,把赠品中的此赠品删除 做的
+	商品总价(不包括运费)没有超过活动限额,把赠品中的此赠品删除 ？
+	调用运费服务
+	调用下单服务
+	团购订单调用服务更新缓存
+	发现频道订单增加商品会员购买数
+ *
+ */
+public class TuangouJielongOrderService  extends CreateOrderBaseService{
+	
+	public TuangouJielongOrderService(String uuid, Logger logger) {
+		super(uuid, logger);
+	}
+
+	/**
+	 * 团购接龙接口
+	 */
+	public BaseOutputBean createTuangouJielongOrder(
+			HttpServletRequest request,
+			BaseInputBean inputBean,OmsCreateOrderInputData inputData ,
+			BaseOutputBean outputBean,OmsCreateOrderOutputData outputData, 
+			TOsParentOrderDao parentOrderDao, 
+			Map<String, BigDecimal> discountMap,Map<String, BigDecimal> otherDiscountMap,
+			
+			Map<Long, PromotionGetPromotionByIdDetailElementO> groupMap, 
+			HashMap<String, String>  params, HashMap<Long, GoodsNumberBean> goodsCount, 
+			boolean canReserve, Map<Long, GoodsGetGoodsInfoGoodsInfoElementO> goodsInfo, 
+			String isIncludeSpecial, String isCheckCOD, boolean isNeedGift, Long giftGoodsId,
+			String couponSN, int giftGoodsNum, Long payMethodId, boolean haveOnlinePay, 
+			Map<String, String> buyFromMap, 
+			StringBuffer goodsIDMax
+			) throws Exception {
+		/**
+		 * 入参校验
+		 */
+     try{
+		Log.info(logger, uuid, "验证团购订单入参开始");
+        if (inputData.getGroupPromotionID() == null
+                        || inputData.getGroupPromotionID() <= 0
+                        || inputData.getGroupBuyingGoodsList() == null
+                        || inputData.getGroupBuyingGoodsList().isEmpty()) {
+            Log.info(logger, uuid, "团购订单入参错误", "inputData", inputData);
+            outputBean = ResponseUtil.getBaseOutputBean(BaseOrderResultEnum.GROUPBUY_IS_NULL.getResultID(), null, inputData.getScope());
+            Log.info(logger, uuid, "接口返回", "outputBean", outputBean);
+            return outputBean;
+        }
+        
+        //初始化返回值
+        //默认初始化返回值为正确的
+        outputBean = ResponseUtil.getBaseOutputBean(BaseResultEnum.SUCCESS.getResultID(), null, inputData.getScope());
+        
+        //调用相关RPC服务
+        TuangouJielongCreateOrderRPC tuangouJielongCreateOrderRPC = new TuangouJielongCreateOrderRPC(uuid,logger);
+        
+        //调用促销服务
+        outputBean=tuangouJielongCreateOrderRPC.getPromotionPRC(inputData);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+            Log.error(logger, uuid, "调用促销服务出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        PromotionGetPromotionByIdOutputData promotionByIdOutputData = (PromotionGetPromotionByIdOutputData)outputBean.getOutputData();
+        
+        //活动相关业务
+        TuangouJielongOrderBussiness tuangouJielongOrderBussiness= new TuangouJielongOrderBussiness(uuid,logger,promotionByIdOutputData);
+        
+        
+        
+        // chuan获得限制商品的用户历史购买量
+        outputBean = tuangouJielongOrderBussiness.getBuyerPromotionNum(outputBean, inputData, params, promotionByIdOutputData);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+            Log.error(logger, uuid, "获得限制商品的用户历史购买量出错,接口返回", null, "outputBean", outputBean);
+            return outputBean;
+        }
+        
+
+        //验证团购 CreateOrderBaseService暂时不改造
+        if (!checkGroupBuy(inputData, promotionByIdOutputData, outputBean, groupMap, tuangouJielongOrderBussiness.getGroupHisBuyMap())) {
+            Log.error(logger, uuid, "验证团购出错,接口返回", null, "inputData", inputData ,"promotionByIdOutputData", promotionByIdOutputData ,"outputBean" ,outputBean ,"groupMap" ,groupMap);
+            return outputBean;
+        }
+        
+        //微信活动校验并且填充数据
+        outputBean=tuangouJielongOrderBussiness.webchatActivityInitAndFillData(outputBean, inputData, params);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "微信活动校验出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+    	//沱沱惠团购商品限购
+    	outputBean = tuangouJielongOrderBussiness.tootoohuiActivityInitAndFillData(outputBean, inputData, params);
+    	if(!checkBussiness(outputBean , inputData.getScope())){
+    		Log.error(logger, uuid, "沱沱惠团购商品限购出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //特殊的两种团购（网易）
+        outputBean = tuangouJielongOrderBussiness.specialActivityInitAndFillData(outputBean, inputData, params, parentOrderDao);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "特殊的两种团购校验出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //九段专享
+        outputBean = tuangouJielongOrderBussiness.nineExclusiveActivityInitAndFillData(outputBean, inputData, params);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "九段专享校验出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //沱粉专享
+        outputBean = tuangouJielongOrderBussiness.jetActivityInitAndFillData(outputBean, inputData, params, couponSN);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "沱粉专享校验出错,接口返回", null, "inputData", inputData, "outputBean", outputBean, "couponSN", couponSN);
+        	return outputBean;
+        }
+        
+        Log.info(logger, uuid, "验证团购订单入参结束");
+        
+        //调用地址服务
+        BaseResult addressResult=tuangouJielongCreateOrderRPC.getAddressRPC(inputData, params);
+        if(!checkRPC(addressResult , inputData.getScope())){
+        	Log.error(logger, uuid, "调用地址服务出错,接口返回", null, "inputData", inputData, "addressResult", addressResult);
+        	return addressResult.getBaseOutputBean();
+        }
+        //获得地址出参
+        AddressGetAddressByIDOutputData addressOutputData = (AddressGetAddressByIDOutputData) addressResult.getParams().get("addressOutputData");
+        
+        //调用库存服务
+        BaseResult stockResult = tuangouJielongCreateOrderRPC.getSaleStockRPC(inputData, params, goodsCount, goodsInfo);
+        if(!checkRPC(stockResult , inputData.getScope())){
+        	Log.error(logger, uuid, "调用库存服务出错,接口返回", null, "inputData", inputData, "stockResult", stockResult);
+        	return addressResult.getBaseOutputBean();
+        }
+        //获得库存
+        Map<Long, Set<Long>> goodsStock = (Map<Long, Set<Long>>) stockResult.getParams().get("goodsStock");
+        
+        //获取当日达时间
+        outputBean=tuangouJielongOrderBussiness.isDeliveryTimeAndFillData(outputBean, inputData, canReserve);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "获取当日达时间出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //调用配送服务
+        BaseResult shippingResult=tuangouJielongCreateOrderRPC.getShippingRPC(inputData, params, addressOutputData, tuangouJielongOrderBussiness.isJielong(), false, tuangouJielongOrderBussiness.getTempleteId(), goodsCount, goodsInfo, tuangouJielongOrderBussiness.getTimeShipType(), goodsStock);
+        if(!checkRPC(shippingResult , inputData.getScope())){
+        	Log.error(logger, uuid, "调用配送服务出错,接口返回", null, "inputData", inputData, "shippingResult", shippingResult);
+        	return shippingResult.getBaseOutputBean();
+        }
+        //获得goodsWarehouseRule
+        Map<Long, Map<Long, List<ShippingGetGoodsShippingInfosShippingRulesElementO>>> goodsWarehouseRule = (Map<Long, Map<Long, List<ShippingGetGoodsShippingInfosShippingRulesElementO>>>) shippingResult.getParams().get("goodsWarehouseRule");
+        
+        //调用运力服务
+        BaseResult transportResult = tuangouJielongCreateOrderRPC.getTransportRPC(inputData, params, addressOutputData, tuangouJielongOrderBussiness.isJielong(), true, tuangouJielongOrderBussiness.getTempleteId(), goodsCount, goodsInfo, tuangouJielongOrderBussiness.getTimeShipType(), goodsStock);
+        if(!checkRPC(transportResult , inputData.getScope())){
+        	Log.error(logger, uuid, "调用运力服务出错,接口返回", null, "inputData", inputData, "transportResult", transportResult);
+        	return transportResult.getBaseOutputBean();
+        }
+        //获得alldates
+        Set<ShippingDateBean> allDates = (Set<ShippingDateBean>) transportResult.getParams().get("allDates");
+        
+        //设置收货时间
+        outputBean = tuangouJielongOrderBussiness.setReceiveDateAndFillData(outputBean, outputData, inputData, goodsCount, promotionByIdOutputData, isIncludeSpecial, isCheckCOD, allDates);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "设置收货时间出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //指定商品的库房和配送公司
+        outputBean = tuangouJielongOrderBussiness.setWarehouseAndDCAndFillData(outputBean, goodsWarehouseRule, isCheckCOD);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "指定商品的库房和配送公司出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //商品总价(不包括运费)没有超过活动限额,把赠品中的此赠品删除 ？
+        outputBean = tuangouJielongOrderBussiness.setOrderFeeAndFillData(outputBean, inputData, goodsCount, goodsInfo, groupMap, isNeedGift, giftGoodsId, giftGoodsNum, couponSN);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "商品总价(不包括运费)没有超过活动限额出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+        //获取运费，为了商品总价(不包括运费)没有超过活动限额,把赠品中的此赠品删除 做的
+        BaseResult shippingFeeResult = tuangouJielongCreateOrderRPC.getShippingFeeRPC(inputData, tuangouJielongOrderBussiness.getShipFeeGroupbuy(), tuangouJielongOrderBussiness.getNoShipFeeAmount(), isNeedGift, tuangouJielongOrderBussiness.getOrderFee(), couponSN, tuangouJielongOrderBussiness.isGiftOK(), addressOutputData, tuangouJielongOrderBussiness.getTempleteId(), goodsCount, goodsInfo, tuangouJielongOrderBussiness.getTimeShipType());
+        if(!checkRPC(shippingResult , inputData.getScope())){
+        	Log.error(logger, uuid, "获取运费出错,接口返回", null, "inputData", inputData, "shippingFeeResult", shippingFeeResult);
+        	return shippingResult.getBaseOutputBean();
+        }
+        BigDecimal shipFee = (BigDecimal) shippingFeeResult.getParams().get("shipFee");
+	    BigDecimal shipTotalFee = (BigDecimal) shippingFeeResult.getParams().get("shipTotalFee");
+	    BigDecimal deliveryTimeFee = (BigDecimal) shippingFeeResult.getParams().get("deliveryTimeFee");
+        
+        //调用下单服务
+	    outputBean = createOrder(request,inputBean, inputData, outputBean, outputData, params, goodsCount, groupMap, goodsInfo, buyFromMap, tuangouJielongOrderBussiness.getGoodsWarehouseAndDcBean(), tuangouJielongOrderBussiness.getGoodsShipCapacityMap(), discountMap, otherDiscountMap, addressOutputData, null, parentOrderDao, tuangouJielongOrderBussiness.getBsMobile(), goodsIDMax, isIncludeSpecial, isCheckCOD, couponSN, tuangouJielongOrderBussiness.getReceiveDate(), tuangouJielongOrderBussiness.getSendAmount(), shipFee, shipTotalFee, deliveryTimeFee,BigDecimal.ZERO, payMethodId, canReserve, haveOnlinePay, tuangouJielongOrderBussiness.isGroupWy(),null,null);
+        if(!checkBussiness(outputBean , inputData.getScope())){
+        	Log.error(logger, uuid, "调用下单服务出错,接口返回", null, "inputData", inputData, "outputBean", outputBean);
+        	return outputBean;
+        }
+        
+    	//团购订单调用服务更新缓存
+        Log.info(logger, uuid, "更新缓存开始");
+        tuangouJielongCreateOrderRPC.updateCache(inputData, params, goodsInfo);
+        Log.info(logger, uuid, "更新缓存结束");
+        
+        // chuan发现频道下单成功后记录限制商品购买数 
+        Log.info(logger, uuid, "发现频道下单成功后记录限制商品购买数开始");
+        tuangouJielongCreateOrderRPC.setBuyerPromotionNumRPC(inputData, params, tuangouJielongOrderBussiness.getGroupMaxBuyMap());
+        Log.info(logger, uuid, "发现频道下单成功后记录限制商品购买数结束");
+        
+     } catch (RuntimeException r) {
+         outputBean = ResponseUtil.getBaseOutputBean(BaseResultEnum.INSIDE_ERROR.getResultID(), null, inputData.getScope());
+    	 Log.error(logger, uuid, "运行时异常：+'方法名createTuangouJielongOrder:'", r);
+     } catch (Exception e) {
+         outputBean = ResponseUtil.getBaseOutputBean(BaseResultEnum.INSIDE_ERROR.getResultID(), null, inputData.getScope());
+    	 Log.error(logger, uuid, "服务异常：+'方法名createTuangouJielongOrder:'", e);
+     } 
+	    return outputBean;
+	}
+	
+	/**
+	 * 校验返回接口数据是否成功。
+	 */
+    private boolean checkBussiness(BaseOutputBean outputBean , String scope) throws Exception {
+        
+    	if (outputBean == null || outputBean.getOutputHead() == null
+                || outputBean.getOutputHead().getResultID() == null) {
+		    outputBean.setOutputHead(Global.getOutputHead(BaseResultEnum.CALLSERVER_ERROR.getResultID(), scope, null));
+		    outputBean.setOutputData(null);
+		    return false;
+		}
+		if (outputBean.getOutputHead().getResultID() != BaseResultEnum.SUCCESS.getResultID()) {
+		    return false;
+		}
+		return true; 
+    }
+    
+    /**
+	 * 校验RPC返回接口数据是否成功。
+	 */
+    private boolean checkRPC(BaseResult result ,String scope) throws Exception {
+        
+    	if (result == null || result.getBaseOutputBean() == null || result.getBaseOutputBean().getOutputHead() == null
+                || result.getBaseOutputBean().getOutputHead().getResultID() == null) {
+    		result.getBaseOutputBean().setOutputHead(Global.getOutputHead(BaseResultEnum.CALLSERVER_ERROR.getResultID(), scope, null));
+    		result.getBaseOutputBean().setOutputData(null);
+		    return false;
+		}
+		if (result.getStatus() != BaseResultEnum.SUCCESS.getResultID() || result.getBaseOutputBean().getOutputHead().getResultID() != BaseResultEnum.SUCCESS.getResultID() ) {
+		    return false;
+		}
+		return true; 
+    }
+}

@@ -1,0 +1,121 @@
+10
+
+dir
+132073
+svn://119.254.17.138/repos/%E6%B2%B1%E6%B2%B1%E7%94%9F%E6%B4%BB%E7%BD%91%E8%B6%85/code/services.tootoo.cn/oms/test/src/cn/tootoo/soa/oms
+svn://119.254.17.138/repos
+
+
+
+2015-11-13T08:44:23.710094Z
+132066
+lishaochuan
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5351f05e-98f4-42cc-8e6a-33022518c94f
+
+getordercommon
+dir
+
+getorderpay
+dir
+
+suborderreturn
+dir
+
+splitorder
+dir
+
+setbuyerpromotionnum
+dir
+
+subordercancel
+dir
+
+subordersign
+dir
+
+paycallback
+dir
+
+thirdordercancel
+dir
+
+initorderlot
+dir
+
+exceptions
+dir
+
+ordercancel
+dir
+
+suborderoutstock
+dir
+
+createthorderboss
+dir
+
+bindsuborderreturn
+dir
+
+buyerbuyscoreservice
+dir
+
+getordercount
+dir
+
+getorderitemlist
+dir
+
+getavailablelotcodelist
+dir
+
+getbuyeridbyorder
+dir
+
+updatelotcode
+dir
+
+getorderdetail
+dir
+
+getorderopt
+dir
+
+createorder
+dir
+
+utils
+dir
+
+getorderlist
+dir
+
+splitlot
+dir
+
+ordercancelbyuser
+dir
+
+bindorderrefund
+dir
+
+getbuyerpromotionnum
+dir
+
+updatereceivedt
+dir
+

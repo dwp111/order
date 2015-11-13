@@ -1,0 +1,101 @@
+package cn.tootoo.soa.oms.thirdordercancel.delegate;
+
+import cn.tootoo.global.Global;
+import cn.tootoo.http.bean.BaseInputBean;
+import cn.tootoo.http.bean.BaseInputHead;
+import cn.tootoo.http.bean.BaseOutputBean;
+import cn.tootoo.http.bean.BaseOutputHead;
+import cn.tootoo.soa.oms.thirdordercancel.input.OmsThirdOrderCancelInputData;
+import cn.tootoo.soa.oms.thirdordercancel.output.OmsThirdOrderCancelOutputData;
+import cn.tootoo.soa.oms.exceptions.OmsDelegateException;
+import cn.tootoo.soa.oms.utils.LogUtils4Oms;
+import java.util.ArrayList;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.log4j.Logger;
+
+/**
+ * 服务委托者实现类。
+ * 
+ * 服务description：订单服务。
+ * 服务remark：订单服务。
+ * 接口description：第三方订单取消。
+ * 接口remark：
+ */
+public final class ThirdOrderCancelDelegate extends AbstractThirdOrderCancelDelegate implements Cloneable {
+    
+    static {
+        ThirdOrderCancelDelegateFactory.registPrototype(new ThirdOrderCancelDelegate());
+    }
+    
+    /**
+     * 克隆方法。
+     */
+    @Override
+    public AbstractThirdOrderCancelDelegate clone() throws CloneNotSupportedException {
+        return new ThirdOrderCancelDelegate();
+    }
+    
+    /**
+     * 初始化方法。
+     * 该方法中通常实现如下功能：验证登录、加锁、初始化DAO对象等等。
+     * 
+     * @param inputHead 该接口的请求参数头。
+     * @param inputData 该接口的请求参数数据体。
+     * @param outputHead 该接口的返回结果头。
+     * @param outputData 该接口的返回结果数据体。
+     */
+    @Override
+    public void doInit(final BaseInputHead inputHead, final OmsThirdOrderCancelInputData inputData, final BaseOutputHead outputHead, final OmsThirdOrderCancelOutputData outputData) throws OmsDelegateException {
+        
+    }
+    
+    /**
+     * 初始检查方法。
+     * 该方法在实际执行服务功能之前进行检查，默认返回true。
+     * 
+     * @param inputHead 该接口的请求参数头。
+     * @param inputData 该接口的请求参数数据体。
+     * @param outputHead 该接口的返回结果头。
+     * @param outputData 该接口的返回结果数据体。
+     * 
+     * @return boolean 检查是否通过。
+     */
+    @Override
+    public boolean doCheck(final BaseInputHead inputHead, final OmsThirdOrderCancelInputData inputData, final BaseOutputHead outputHead, final OmsThirdOrderCancelOutputData outputData) {
+        try {
+            return true;
+        } catch (Exception e) {
+            LogUtils4Oms.error(logger, uuid, "初始检查方法出现异常，返回false！", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 功能执行方法。
+     * 该方法中执行实际的服务功能。
+     * 
+     * @param inputHead 该接口的请求参数头。
+     * @param inputData 该接口的请求参数数据体。
+     * @param outputHead 该接口的返回结果头。
+     * @param outputData 该接口的返回结果数据体。
+     */
+    @Override
+    public void doExecute(final BaseInputHead inputHead, final OmsThirdOrderCancelInputData inputData, final BaseOutputHead outputHead, final OmsThirdOrderCancelOutputData outputData) throws OmsDelegateException {
+    }
+    
+    /**
+     * 关闭方法。
+     * 该方法中通常实现如下功能：解锁、提交或回滚事务等等。
+     * 
+     * @param inputHead 该接口的请求参数头。
+     * @param inputData 该接口的请求参数数据体。
+     * @param outputHead 该接口的返回结果头。
+     * @param outputData 该接口的返回结果数据体。
+     */
+    @Override
+    public void doClose(final BaseInputHead inputHead, final OmsThirdOrderCancelInputData inputData, final BaseOutputHead outputHead, final OmsThirdOrderCancelOutputData outputData) throws OmsDelegateException {
+        
+    }
+}

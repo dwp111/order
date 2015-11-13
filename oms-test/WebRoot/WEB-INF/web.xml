@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+	id="WebApp_ID" version="3.0">
+	<display-name>oms</display-name>
+	<servlet>
+		<display-name>TooToo Timer Servlet</display-name>
+		<servlet-name>TooTooTimer</servlet-name>
+		<servlet-class>cn.tootoo.timer.TimersServlet</servlet-class>
+		<init-param>
+			<param-name>threads</param-name>
+			<param-value>
+				cn.tootoo.soa.base.job.RefreshCouponSpecialJob-3600,
+				cn.tootoo.thread.ResetDaoCacheSetThread-3600,<!-- 公用 加载缓存列-->
+ 				cn.tootoo.soa.base.job.RefreshResultJob-3600, 
+ 				cn.tootoo.soa.base.job.RefreshShipFeeJob-600,
+ 				cn.tootoo.listener.ListenerJobThread-900,
+ 				cn.tootoo.soa.base.job.DictionaryDataJob-3600,
+ 				cn.tootoo.soa.base.job.RefreshGoodsSpecialInfos-600,
+ 				cn.tootoo.thread.ReleaseLockThread-60,<!-- 删除5分钟的锁 -->
+				cn.tootoo.soa.base.job.RefreshGoodsSpecialInfos-60
+			</param-value>
+		</init-param>
+		<load-on-startup>100</load-on-startup>
+	</servlet>
+	<servlet>
+		<servlet-name>MainServlet</servlet-name>
+		<servlet-class>cn.tootoo.servlet.MainServiceServlet</servlet-class>
+		<init-param>
+			<param-name>servicePath</param-name>
+			<param-value>cn.tootoo.soa.oms</param-value>
+		</init-param>
+		<init-param> 
+			<param-name>invalidsql</param-name> 
+			<param-value>select insert delete from update create destory drop alter and or like exec chr mid master truncate char declare Union &lt; ></param-value> 
+		</init-param>
+		<load-on-startup>5</load-on-startup>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>MainServlet</servlet-name>
+		<url-pattern>/MainServlet</url-pattern>
+	</servlet-mapping>
+</web-app>
